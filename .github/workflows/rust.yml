@@ -1,5 +1,0 @@
-on:
-  workflow_dispatch:  # <-- Questa riga abilita il tasto "Run workflow"
-  push:
-    branches:
-      - master
