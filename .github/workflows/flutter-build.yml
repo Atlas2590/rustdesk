@@ -771,13 +771,13 @@ jobs:
    #       files: |
    #        rustdesk*-${{ matrix.job.arch }}.dmg
 
- # publish_unsigned:
-   # needs:
+  publish_unsigned:
+    needs:
    #   - build-for-macOS
    #   - build-for-windows-flutter
    #   - build-for-windows-sciter
-   # runs-on: ubuntu-latest
-   # if: ${{ inputs.upload-artifact }}
+    runs-on: ubuntu-latest
+    if: ${{ inputs.upload-artifact }}
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@master
