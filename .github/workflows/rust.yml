@@ -1,22 +1,5 @@
-name: Rust
-
 on:
+  workflow_dispatch:  # <-- Questa riga abilita il tasto "Run workflow"
   push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
-
-env:
-  CARGO_TERM_COLOR: always
-
-jobs:
-  build:
-
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v4
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
+    branches:
+      - master
