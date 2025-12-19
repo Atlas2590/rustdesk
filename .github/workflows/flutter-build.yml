@@ -85,10 +85,15 @@ jobs:
         shell: bash
         run: |
           # Installiamo esplicitamente le librerie che Rust cercherà
-          vcpkg install --triplet x64-windows-static --x-install-root="$VCPKG_ROOT/installed" ffmpeg libvpx libyuv opus
+          $VCPKG_ROOT/vcpkg install --triplet x64-windows-static --x-install-root="$VCPKG_ROOT/installed" ffmpeg libvpx libyuv opus
 
       - name: Build rustdesk
         shell: pwsh
+        env:
+          # Queste variabili dicono al compilatore dove trovare FFmpeg (libavutil)
+          VCPKG_ROOT: C:\vcpkg
+          INCLUDE: "C:/vcpkg/installed/x64-windows-static/include"
+          LIB: "C:/vcpkg/installed/x64-windows-static/lib"
         run: |
           # Installiamo le dipendenze Python necessarie allo script build.py
           pip3 install requests
