@@ -14,7 +14,7 @@ on:
 env:
   RUST_VERSION: "1.75"
   LLVM_VERSION: "15.0.6"
-  FLUTTER_VERSION: "3.24.5"
+  FLUTTER_VERSION: "3.24.5" # Assicurati che sia uguale in bridge.yml
   TAG_NAME: "${{ inputs.upload-tag }}"
   VCPKG_COMMIT_ID: "120deac3062162151622ca4860575a33844ba10b"
   VERSION: "1.4.4"
@@ -31,7 +31,6 @@ jobs:
       target: windows-2022
       configuration: Release
       platform: x64
-      target_version: Windows10
 
   build-for-windows-flutter:
     name: Windows x64 Flutter
@@ -44,7 +43,7 @@ jobs:
           submodules: recursive
 
       - name: Restore bridge files
-        uses: actions/download-artifact@v4 # Aggiornato a v4
+        uses: actions/download-artifact@v4
         with:
           name: bridge-artifact
           path: ./
@@ -60,16 +59,15 @@ jobs:
           channel: "stable"
           flutter-version: ${{ env.FLUTTER_VERSION }}
 
-      - name: Replace engine with rustdesk custom flutter engine
+      - name: Replace engine with custom engine
         shell: pwsh
         run: |
-          flutter doctor -v
           flutter precache --windows
-          Invoke-WebRequest -Uri https://github.com/rustdesk/engine/releases/download/main/windows-x64-release.zip -OutFile windows-x64-release.zip
-          Expand-Archive -Path windows-x64-release.zip -DestinationPath windows-x64-release
-          $flutterPath = "C:/hostedtoolcache/windows/flutter/stable-$($env:FLUTTER_VERSION)-x64/bin/cache/artifacts/engine/windows-x64-release/"
-          if (!(Test-Path $flutterPath)) { New-Item -ItemType Directory -Force -Path $flutterPath }
-          Move-Item -Force windows-x64-release/* $flutterPath
+          Invoke-WebRequest -Uri https://github.com/rustdesk/engine/releases/download/main/windows-x64-release.zip -OutFile engine.zip
+          Expand-Archive -Path engine.zip -DestinationPath custom_engine
+          $dest = "C:/hostedtoolcache/windows/flutter/stable-$($env:FLUTTER_VERSION)-x64/bin/cache/artifacts/engine/windows-x64-release/"
+          if (!(Test-Path $dest)) { New-Item -ItemType Directory -Force -Path $dest }
+          Move-Item -Force custom_engine/* $dest
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@v1
@@ -86,37 +84,46 @@ jobs:
       - name: Install vcpkg dependencies
         shell: bash
         run: |
-          $VCPKG_ROOT/vcpkg install --triplet x64-windows-static --x-install-root="$VCPKG_ROOT/installed"
+          # Installiamo esplicitamente le librerie che Rust cercherà
+          vcpkg install --triplet x64-windows-static --x-install-root="$VCPKG_ROOT/installed" ffmpeg libvpx libyuv opus
 
       - name: Build rustdesk
         shell: pwsh
         run: |
-          python3 .\build.py --portable --hwcodec --flutter --vram --skip-portable-pack
-          mv ./flutter/build/windows/x64/runner/Release ./rustdesk
+          # Installiamo le dipendenze Python necessarie allo script build.py
+          pip3 install requests
+          
+          # Lancio della build. Se questo fallisce, vedrai l'errore specifico di Rust nei log
+          python3 .\build.py --hwcodec --flutter --vram
+          
+          # Controllo se la build ha prodotto l'output
+          $releaseDir = "./flutter/build/windows/x64/runner/Release"
+          if (Test-Path $releaseDir) {
+              Move-Item -Force $releaseDir ./rustdesk
+          } else {
+              Write-Error "La build di Rust/Flutter è fallita. Controlla i log sopra per errori 'cargo' o 'linker'."
+              exit 1
+          }
 
-      - name: Download RustDeskTempTopMostWindow artifacts
+      - name: Download TopMostWindow DLL
         uses: actions/download-artifact@v4
         with:
           name: topmostwindow-artifacts
           path: ./rustdesk
 
-      - name: Build Portable and MSI
+      - name: Build Installer (MSI)
         shell: pwsh
         run: |
-          # Portable
-          pushd ./libs/portable
-          pip3 install -r requirements.txt
-          python3 ./generate.py -f ../../rustdesk/ -o . -e ../../rustdesk/rustdesk.exe
-          popd
-          mkdir SignOutput
-          mv ./target/release/rustdesk-portable-packer.exe ./SignOutput/rustdesk-$($env:VERSION)-x86_64.exe
-          
-          # MSI (Richiede MSBuild)
+          # Preparazione MSI
           pushd ./res/msi
           python3 preprocess.py --arp -d ../../rustdesk
           nuget restore msi.sln
-          & "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe" msi.sln /p:Configuration=Release /p:Platform=x64 /p:TargetVersion=Windows10
-          mv ./Package/bin/x64/Release/en-us/Package.msi ../../SignOutput/rustdesk-$($env:VERSION)-x86_64.msi
+          & "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe" msi.sln /p:Configuration=Release /p:Platform=x64
+          popd
+          mkdir SignOutput
+          if (Test-Path "./res/msi/Package/bin/x64/Release/en-us/Package.msi") {
+              mv ./res/msi/Package/bin/x64/Release/en-us/Package.msi ./SignOutput/rustdesk-${{ env.VERSION }}.msi
+          }
 
       - name: Publish Release
         uses: softprops/action-gh-release@v1
@@ -124,4 +131,4 @@ jobs:
         with:
           prerelease: true
           tag_name: ${{ env.TAG_NAME }}
-          files: ./SignOutput/*
+          files: ./SignOutput/*.msi
