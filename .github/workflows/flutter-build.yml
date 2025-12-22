@@ -95,28 +95,36 @@ jobs:
       - name: Build rustdesk
         shell: pwsh
         env:
-          # Queste variabili dicono al compilatore dove trovare FFmpeg (libavutil)
           VCPKG_ROOT: C:\vcpkg
-          INCLUDE: "C:/vcpkg/installed/x64-windows-static/include"
-          LIB: "C:/vcpkg/installed/x64-windows-static/lib"
-          BINDGEN_EXTRA_CLANG_ARGS: >-
-            -I"C:/Program Files (x86)/Windows Kits/10/Include/10.0.22621.0/ucrt"
-            -I"C:/Program Files (x86)/Windows Kits/10/Include/10.0.22621.0/mfc"
-            -I"C:/Program Files (x86)/Windows Kits/10/Include/10.0.22621.0/shared"
-            -I"C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/14.42.34433/include"
         run: |
-          # Installiamo le dipendenze Python necessarie allo script build.py
-          pip3 install requests
+          # 1. Trova dinamicamente i percorsi di MSVC e Windows SDK
+          $msvcPath = Get-ChildItem "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC" | Select-Object -First 1
+          $sdkPath = "C:/Program Files (x86)/Windows Kits/10/Include/10.0.22621.0"
           
-          # Lancio della build. Se questo fallisce, vedrai l'errore specifico di Rust nei log
+          $includeMsvc = "$($msvcPath.FullName)/include"
+          $includeUcrt = "$sdkPath/ucrt"
+          $includeShared = "$sdkPath/shared"
+          
+          # 2. Configura le variabili per Clang e Rust
+          # BINDGEN_EXTRA_CLANG_ARGS risolve l'errore 'vcruntime.h'
+          $env:BINDGEN_EXTRA_CLANG_ARGS = "-I$includeMsvc -I$includeUcrt -I$includeShared"
+          $env:INCLUDE = "C:/vcpkg/installed/x64-windows-static/include;$includeMsvc;$includeUcrt"
+          $env:LIB = "C:/vcpkg/installed/x64-windows-static/lib;$($msvcPath.FullName)/lib/x64"
+          
+          # FIX per libmfx: aggiungiamo il path delle librerie vcpkg ai flag di Rust
+          $env:RUSTFLAGS = "-L native=C:/vcpkg/installed/x64-windows-static/lib"
+
+          # 3. Esecuzione build
+          pip3 install requests
           python3 .\build.py --hwcodec --flutter --vram
           
-          # Controllo se la build ha prodotto l'output
+          # 4. Spostamento output
           $releaseDir = "./flutter/build/windows/x64/runner/Release"
           if (Test-Path $releaseDir) {
+              if (Test-Path "./rustdesk") { Remove-Item -Recurse -Force ./rustdesk }
               Move-Item -Force $releaseDir ./rustdesk
           } else {
-              Write-Error "Build fallita."
+              Write-Error "Build fallita: la cartella Release non esiste."
               exit 1
           }
 
