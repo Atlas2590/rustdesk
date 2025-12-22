@@ -84,8 +84,13 @@ jobs:
       - name: Install vcpkg dependencies
         shell: bash
         run: |
-          # Installiamo esplicitamente le librerie che Rust cercherà
-          $VCPKG_ROOT/vcpkg install --triplet x64-windows-static --x-install-root="$VCPKG_ROOT/installed" ffmpeg libvpx libyuv opus
+          # Aggiungiamo --classic per ignorare il vcpkg.json e installare i pacchetti richiesti
+          # Usiamo il percorso corretto per l'eseguibile vcpkg su Windows
+          $VCPKG_ROOT/vcpkg install \
+            --classic \
+            --triplet x64-windows-static \
+            --x-install-root="$VCPKG_ROOT/installed" \
+            ffmpeg libvpx libyuv opus
 
       - name: Build rustdesk
         shell: pwsh
