@@ -97,31 +97,35 @@ jobs:
         env:
           VCPKG_ROOT: C:\vcpkg
         run: |
-          # 1. Definiamo i percorsi delle librerie di vcpkg
-          $vcpkgLibPath = "C:/vcpkg/installed/x64-windows-static/lib"
-          $vcpkgIncludePath = "C:/vcpkg/installed/x64-windows-static/include"
-          
-          # 2. Risolviamo il problema libmfx e vcruntime.h
-          # -L native comunica a Rust dove trovare i file .lib
-          $env:RUSTFLAGS = "-L native=$vcpkgLibPath"
-          $env:INCLUDE = "$vcpkgIncludePath;$env:INCLUDE"
-          $env:LIB = "$vcpkgLibPath;$env:LIB"
-          
-          # 3. Fix per Clang/Bindgen (necessario per kcp-sys e hwcodec)
+          # 1. Troviamo i percorsi dinamici
           $msvcPath = Get-ChildItem "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC" | Select-Object -First 1
           $sdkInclude = "C:/Program Files (x86)/Windows Kits/10/Include/10.0.22621.0"
-          $env:BINDGEN_EXTRA_CLANG_ARGS = "-I$($msvcPath.FullName)/include -I$sdkInclude/ucrt -I$sdkInclude/shared"
+          
+          # 2. Prepariamo le variabili con il quoting corretto per gli spazi
+          $vcpkgInclude = "C:/vcpkg/installed/x64-windows-static/include"
+          $vcpkgLib = "C:/vcpkg/installed/x64-windows-static/lib"
+          $msvcInclude = "$($msvcPath.FullName)/include"
+          $ucrtInclude = "$sdkInclude/ucrt"
+          $sharedInclude = "$sdkInclude/shared"
 
-          # 4. Esecuzione build
+          # IMPORTANTE: Racchiudiamo i percorsi tra virgolette per Clang
+          $env:BINDGEN_EXTRA_CLANG_ARGS = "-I`"$msvcInclude`" -I`"$ucrtInclude`" -I`"$sharedInclude`" -I`"$vcpkgInclude`""
+          
+          # Variabili per Rust e Linker
+          $env:INCLUDE = "$vcpkgInclude;$msvcInclude;$ucrtInclude;$sharedInclude"
+          $env:LIB = "$vcpkgLib;$($msvcPath.FullName)/lib/x64"
+          $env:RUSTFLAGS = "-L native=$vcpkgLib"
+
+          # 3. Esecuzione build
           pip3 install requests
           python3 .\build.py --hwcodec --flutter --vram
           
-          # 5. Spostamento output
+          # 4. Spostamento output
           if (Test-Path "./flutter/build/windows/x64/runner/Release") {
               if (Test-Path "./rustdesk") { Remove-Item -Recurse -Force ./rustdesk }
               Move-Item -Force "./flutter/build/windows/x64/runner/Release" ./rustdesk
           } else {
-              Write-Error "ERRORE CRITICO: Compilazione completata ma cartella Release non trovata."
+              Write-Error "La build è fallita. Controlla i log sopra."
               exit 1
           }
 
