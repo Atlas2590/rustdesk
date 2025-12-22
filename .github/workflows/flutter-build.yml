@@ -97,34 +97,31 @@ jobs:
         env:
           VCPKG_ROOT: C:\vcpkg
         run: |
-          # 1. Trova dinamicamente i percorsi di MSVC e Windows SDK
+          # 1. Definiamo i percorsi delle librerie di vcpkg
+          $vcpkgLibPath = "C:/vcpkg/installed/x64-windows-static/lib"
+          $vcpkgIncludePath = "C:/vcpkg/installed/x64-windows-static/include"
+          
+          # 2. Risolviamo il problema libmfx e vcruntime.h
+          # -L native comunica a Rust dove trovare i file .lib
+          $env:RUSTFLAGS = "-L native=$vcpkgLibPath"
+          $env:INCLUDE = "$vcpkgIncludePath;$env:INCLUDE"
+          $env:LIB = "$vcpkgLibPath;$env:LIB"
+          
+          # 3. Fix per Clang/Bindgen (necessario per kcp-sys e hwcodec)
           $msvcPath = Get-ChildItem "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC" | Select-Object -First 1
-          $sdkPath = "C:/Program Files (x86)/Windows Kits/10/Include/10.0.22621.0"
-          
-          $includeMsvc = "$($msvcPath.FullName)/include"
-          $includeUcrt = "$sdkPath/ucrt"
-          $includeShared = "$sdkPath/shared"
-          
-          # 2. Configura le variabili per Clang e Rust
-          # BINDGEN_EXTRA_CLANG_ARGS risolve l'errore 'vcruntime.h'
-          $env:BINDGEN_EXTRA_CLANG_ARGS = "-I$includeMsvc -I$includeUcrt -I$includeShared"
-          $env:INCLUDE = "C:/vcpkg/installed/x64-windows-static/include;$includeMsvc;$includeUcrt"
-          $env:LIB = "C:/vcpkg/installed/x64-windows-static/lib;$($msvcPath.FullName)/lib/x64"
-          
-          # FIX per libmfx: aggiungiamo il path delle librerie vcpkg ai flag di Rust
-          $env:RUSTFLAGS = "-L native=C:/vcpkg/installed/x64-windows-static/lib"
+          $sdkInclude = "C:/Program Files (x86)/Windows Kits/10/Include/10.0.22621.0"
+          $env:BINDGEN_EXTRA_CLANG_ARGS = "-I$($msvcPath.FullName)/include -I$sdkInclude/ucrt -I$sdkInclude/shared"
 
-          # 3. Esecuzione build
+          # 4. Esecuzione build
           pip3 install requests
           python3 .\build.py --hwcodec --flutter --vram
           
-          # 4. Spostamento output
-          $releaseDir = "./flutter/build/windows/x64/runner/Release"
-          if (Test-Path $releaseDir) {
+          # 5. Spostamento output
+          if (Test-Path "./flutter/build/windows/x64/runner/Release") {
               if (Test-Path "./rustdesk") { Remove-Item -Recurse -Force ./rustdesk }
-              Move-Item -Force $releaseDir ./rustdesk
+              Move-Item -Force "./flutter/build/windows/x64/runner/Release" ./rustdesk
           } else {
-              Write-Error "Build fallita: la cartella Release non esiste."
+              Write-Error "ERRORE CRITICO: Compilazione completata ma cartella Release non trovata."
               exit 1
           }
 
