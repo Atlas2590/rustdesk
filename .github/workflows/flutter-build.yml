@@ -99,6 +99,11 @@ jobs:
           VCPKG_ROOT: C:\vcpkg
           INCLUDE: "C:/vcpkg/installed/x64-windows-static/include"
           LIB: "C:/vcpkg/installed/x64-windows-static/lib"
+          BINDGEN_EXTRA_CLANG_ARGS: >-
+            -I"C:/Program Files (x86)/Windows Kits/10/Include/10.0.22621.0/ucrt"
+            -I"C:/Program Files (x86)/Windows Kits/10/Include/10.0.22621.0/mfc"
+            -I"C:/Program Files (x86)/Windows Kits/10/Include/10.0.22621.0/shared"
+            -I"C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/14.42.34433/include"
         run: |
           # Installiamo le dipendenze Python necessarie allo script build.py
           pip3 install requests
@@ -111,7 +116,7 @@ jobs:
           if (Test-Path $releaseDir) {
               Move-Item -Force $releaseDir ./rustdesk
           } else {
-              Write-Error "La build di Rust/Flutter è fallita. Controlla i log sopra per errori 'cargo' o 'linker'."
+              Write-Error "Build fallita."
               exit 1
           }
 
