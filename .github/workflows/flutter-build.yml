@@ -98,6 +98,8 @@ jobs:
         env:
           VCPKG_ROOT: C:\vcpkg
         run: |
+          # Forza la rimozione di eventuali flag hwcodec se presenti in variabili globali
+          $env:RUSTFLAGS = ""
           # 1. Troviamo i percorsi dinamici
           $msvcPath = Get-ChildItem "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC" | Select-Object -First 1
           $sdkInclude = "C:/Program Files (x86)/Windows Kits/10/Include/10.0.22621.0"
