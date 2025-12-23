@@ -119,7 +119,7 @@ jobs:
 
           # 3. Esecuzione build
           pip3 install requests
-          python3 .\build.py --hwcodec --flutter --vram
+          python3 .\build.py --flutter --vram
           
           # 4. Spostamento output
           if (Test-Path "./flutter/build/windows/x64/runner/Release") {
