@@ -74,6 +74,7 @@ jobs:
         with:
           toolchain: ${{ env.RUST_VERSION }}
           targets: x86_64-pc-windows-msvc
+          components: rustfmt
 
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11
@@ -90,7 +91,7 @@ jobs:
             --classic \
             --triplet x64-windows-static \
             --x-install-root="$VCPKG_ROOT/installed" \
-            ffmpeg libvpx libyuv opus
+            ffmpeg libvpx libyuv opus libaom intel-mediasdk
 
       - name: Build rustdesk
         shell: pwsh
