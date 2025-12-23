@@ -91,7 +91,7 @@ jobs:
             --classic \
             --triplet x64-windows-static \
             --x-install-root="$VCPKG_ROOT/installed" \
-            ffmpeg libvpx libyuv opus libaom intel-mediasdk
+            ffmpeg libvpx libyuv opus aom intel-mediasdk
 
       - name: Build rustdesk
         shell: pwsh
